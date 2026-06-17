@@ -3,7 +3,7 @@
   "description": "Neutral options strategy that profits from low volatility. Sells an OTM call spread and OTM put spread simultaneously to collect premium.",
   "tags": ["options", "neutral", "iron-condor", "premium-collection", "low-volatility"],
   "params": {
-    "wingWidth":    { "type": "double", "value": 5.0,  "description": "Distance between strikes in dollars" },
+    "wingWidth":    { "type": "double", "value": 10.0, "description": "Distance between strikes in dollars" },
     "ivThreshold":  { "type": "double", "value": 0.20, "description": "Minimum IV to enter trade (20 %)" }
   }
 }
