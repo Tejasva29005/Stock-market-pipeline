@@ -1,0 +1,10 @@
+{
+  "name": "PutCreditSpreadStrategy",
+  "description": "Mildly bullish / neutral options strategy. Sells an OTM put and buys a further OTM put for defined risk. Profits from time decay and rising prices.",
+  "tags": ["options", "bullish", "put-credit-spread", "premium-collection", "defined-risk"],
+  "params": {
+    "spreadWidth":  { "type": "double", "value": 5.0,  "description": "Distance between strikes in dollars" },
+    "deltaTarget":  { "type": "double", "value": 0.30, "description": "Target delta for the short put (0.30 = 30-delta)" },
+    "ivThreshold":  { "type": "double", "value": 0.15, "description": "Minimum IV to enter trade (15 %)" }
+  }
+}

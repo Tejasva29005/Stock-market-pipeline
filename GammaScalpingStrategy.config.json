@@ -1,0 +1,32 @@
+{
+  "name": "GammaScalpingStrategy",
+  "description": "Long gamma / delta-neutral options strategy that buys ATM straddles when IV is cheap relative to realised vol, then repeatedly delta-hedges back to neutral as the underlying moves to extract gamma scalp profits. Exits on IV expansion (vega take-profit), IV contraction (vega stop), theta bleed limit, scalp profit target, or maximum hold period.",
+  "tags": ["options", "long-gamma", "delta-neutral", "straddle", "gamma-scalp", "vol-arb", "dynamic-hedging"],
+  "params": {
+    "ivEntryMax":            { "type": "double", "value": 0.35,     "description": "Maximum IV allowed at straddle entry; above this, straddles are too expensive" },
+    "ivEntryMin":            { "type": "double", "value": 0.12,     "description": "Minimum IV at entry; below this, gamma opportunity is insufficient" },
+    "ivToHvRatioMin":        { "type": "double", "value": 0.75,     "description": "Minimum HV/IV ratio required for entry (HV should exceed IV for edge)" },
+    "histVolEstimate":       { "type": "double", "value": 0.20,     "description": "Historical (realised) volatility estimate used to compute HV/IV ratio" },
+    "volOfVolThreshold":     { "type": "double", "value": 0.30,     "description": "Vol-of-vol proxy cap; if exceeded, IV surface too unstable for reliable scalp" },
+    "ivSpreadEntryMax":      { "type": "double", "value": 0.03,     "description": "Maximum bid-ask IV spread allowed at entry (liquidity filter)" },
+    "strikeRounding":        { "type": "double", "value": 1.0,      "description": "Strike increment for rounding ATM strike to the nearest listed option" },
+    "straddlePriceCapPct":   { "type": "double", "value": 0.06,     "description": "Straddle price must not exceed this fraction of spot (6 % cap)" },
+    "portfolioAllocPct":     { "type": "double", "value": 0.015,    "description": "Fraction of portfolio NAV allocated to pay the straddle premium (1.5 %)" },
+    "portfolioNav":          { "type": "double", "value": 100000.0, "description": "Notional portfolio size for sizing calculations ($)" },
+    "maxContracts":          { "type": "double", "value": 5.0,      "description": "Hard maximum number of straddle contracts per position" },
+    "minContracts":          { "type": "double", "value": 1.0,      "description": "Minimum number of straddle contracts" },
+    "contractMultiplier":    { "type": "double", "value": 100.0,    "description": "Shares per option contract (standard US equity = 100)" },
+    "rebalanceDeltaBand":    { "type": "double", "value": 0.08,     "description": "Re-hedge when net portfolio delta exceeds this absolute value" },
+    "targetDelta":           { "type": "double", "value": 0.0,      "description": "Target net delta after each rebalance (0.0 = delta neutral)" },
+    "maxHedgeSizePct":       { "type": "double", "value": 0.50,     "description": "Maximum single delta-hedge trade size as a fraction of underlying notional" },
+    "thetaMaxDailyLoss":     { "type": "double", "value": 0.03,     "description": "Exit if daily theta bleed exceeds this fraction of the initial premium paid" },
+    "vegaExitMultiple":      { "type": "double", "value": 1.40,     "description": "Take profit on IV expansion: exit if current IV > entry IV × this value" },
+    "vegaStopMultiple":      { "type": "double", "value": 0.70,     "description": "Stop-loss on IV contraction: exit if current IV < entry IV × this value" },
+    "scalpProfitMultiple":   { "type": "double", "value": 1.50,     "description": "Exit when cumulative scalp P&L exceeds initial premium × this multiple" },
+    "maxHoldDays":           { "type": "double", "value": 30.0,     "description": "Maximum days to hold the straddle regardless of P&L outcome" },
+    "dteCloseMin":           { "type": "double", "value": 3.0,      "description": "Exit unconditionally when estimated DTE drops below this value" },
+    "gammaOppScoreMin":      { "type": "double", "value": 0.40,     "description": "Minimum composite gamma opportunity score (0–1) required to enter" },
+    "gammaIvDispWeight":     { "type": "double", "value": 0.50,     "description": "Weight of IV-vs-HV dispersion component in gamma opportunity score" },
+    "gammaAtmWeight":        { "type": "double", "value": 0.50,     "description": "Weight of ATM-proximity component in the gamma opportunity score" }
+  }
+}
