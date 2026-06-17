@@ -4,6 +4,9 @@ import java.util.List;
 /**
  * Iron Condor: sells OTM call spread + OTM put spread simultaneously.
  * Profits from low-volatility, range-bound price action and time decay.
+ *
+ * Entry condition: implied volatility must exceed IV_THRESHOLD.
+ * Higher IV means fatter premiums and a wider profitable range.
  * DEMO — numbers are illustrative, NOT real trading logic.
  */
 public class IronCondorStrategy implements Strategy {
@@ -17,6 +20,7 @@ public class IronCondorStrategy implements Strategy {
         double price = data.getPrice();
         double iv    = data.getImpliedVolatility();
 
+        // Only enter when IV is elevated — ensures we collect meaningful premium
         if (iv > IV_THRESHOLD) {
             // sell call spread (short call closer to money, long call further OTM)
             signals.add(new Signal(data.getSymbol(), SignalType.SELL_CALL, price + WING_WIDTH));
