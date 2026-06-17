@@ -1,4 +1,3 @@
-// I love Strategies
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,7 +12,7 @@ import java.util.List;
 public class IronCondorStrategy implements Strategy {
 
     private static final double WING_WIDTH   = 8.0;   // distance between strikes ($)
-    private static final double IV_THRESHOLD = 0.20;  // min IV to enter (20 %)
+    private static final double IV_THRESHOLD = 0.85;  // min IV to enter (85 %)
 
     @Override
     public List<Signal> generateSignals(MarketData data) {

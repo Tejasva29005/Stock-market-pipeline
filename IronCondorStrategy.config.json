@@ -4,6 +4,6 @@
   "tags": ["options", "neutral", "iron-condor", "premium-collection", "low-volatility"],
   "params": {
     "wingWidth":    { "type": "double", "value": 8.0,  "description": "Distance between strikes in dollars" },
-    "ivThreshold":  { "type": "double", "value": 0.20, "description": "Minimum IV to enter trade (20 %)" }
+    "ivThreshold":  { "type": "double", "value": 0.85, "description": "Minimum IV to enter trade (85 %)" }
   }
 }
