@@ -1,0 +1,29 @@
+{
+  "name": "DynamicHedgingStrategy",
+  "description": "Delta-neutral options strategy that sells a near-ATM strangle and continuously rebalances when delta drifts outside a configurable band. Adds protective long wings on IV spikes, supports gamma scalping, and includes emergency-exit, profit-lock, and portfolio-beta hedging controls.",
+  "tags": ["options", "delta-neutral", "dynamic-hedging", "strangle", "gamma-scalping", "rebalancing", "vega"],
+  "params": {
+    "targetDelta":          { "type": "double", "value": 0.00,  "description": "Target net portfolio delta (0 = delta-neutral)" },
+    "deltaBandWidth":       { "type": "double", "value": 0.05,  "description": "Rebalance when net delta drifts beyond ±this value" },
+    "maxStrikeDistance":    { "type": "double", "value": 20.0,  "description": "Maximum OTM strike distance from spot ($)" },
+    "callStrikeOffset":     { "type": "double", "value": 5.0,   "description": "Initial short-call OTM offset from spot ($)" },
+    "putStrikeOffset":      { "type": "double", "value": 5.0,   "description": "Initial short-put OTM offset from spot ($)" },
+    "adjCallOffset":        { "type": "double", "value": 2.5,   "description": "OTM offset for rebalancing call leg ($)" },
+    "adjPutOffset":         { "type": "double", "value": 2.5,   "description": "OTM offset for rebalancing put leg ($)" },
+    "gammaSensitivity":     { "type": "double", "value": 0.02,  "description": "Minimum estimated gamma to trigger a scalp" },
+    "vegaLimit":            { "type": "double", "value": 0.50,  "description": "Maximum net vega exposure per open position" },
+    "thetaDailyMin":        { "type": "double", "value": -0.10, "description": "Minimum acceptable daily theta ($/share/day)" },
+    "minIvEntry":           { "type": "double", "value": 0.15,  "description": "Do not enter if IV is below this level" },
+    "maxIvEntry":           { "type": "double", "value": 0.60,  "description": "Do not enter if IV is above this level" },
+    "ivSpikeThreshold":     { "type": "double", "value": 0.40,  "description": "IV level above which protective wings are added" },
+    "emergencyLoss":        { "type": "double", "value": -5.00, "description": "Force-exit threshold: close if P&L falls below this ($/share)" },
+    "profitLockThreshold":  { "type": "double", "value": 3.00,  "description": "Roll to next expiry when P&L reaches this ($/share)" },
+    "minPremiumPerLeg":     { "type": "double", "value": 0.25,  "description": "Skip individual legs whose credit is below this ($)" },
+    "maxAdjustments":       { "type": "double", "value": 3.0,   "description": "Maximum number of delta-rebalancing rounds per trading day" },
+    "adjustmentCostMax":    { "type": "double", "value": 0.10,  "description": "Maximum acceptable transaction cost per adjustment ($)" },
+    "hedgeRatio":           { "type": "double", "value": 1.00,  "description": "Number of option contracts per share of underlying to hedge" },
+    "portfolioBeta":        { "type": "double", "value": 1.00,  "description": "Beta of portfolio vs index used for hedge-size scaling" },
+    "rollProfitCapture":    { "type": "double", "value": 0.70,  "description": "Roll the position when this fraction of max profit has been captured" },
+    "rebalanceFreqMin":     { "type": "double", "value": 30.0,  "description": "Minimum minutes between delta-rebalancing rounds" }
+  }
+}

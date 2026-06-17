@@ -1,0 +1,28 @@
+{
+  "name": "VolatilityRegimeStrategy",
+  "description": "Regime-aware options strategy that selects iron condors, credit spreads, or stands aside based on the current implied-volatility level. Applies a skew adjustment to put strikes in elevated-IV environments to capture put-skew premium. Includes rolling, stop-loss, and portfolio-delta controls.",
+  "tags": ["options", "regime", "iron-condor", "credit-spread", "volatility", "multi-regime", "put-skew"],
+  "params": {
+    "lowVolThreshold":   { "type": "double", "value": 0.15, "description": "IV below this → low regime (tight condor)" },
+    "midVolThreshold":   { "type": "double", "value": 0.25, "description": "IV below this → mid regime (standard condor)" },
+    "highVolThreshold":  { "type": "double", "value": 0.40, "description": "IV above this → stand aside entirely" },
+    "lowWingWidth":      { "type": "double", "value": 3.0,  "description": "Wing width in low-vol regime ($)" },
+    "midWingWidth":      { "type": "double", "value": 5.0,  "description": "Wing width in mid-vol regime ($)" },
+    "highWingWidth":     { "type": "double", "value": 8.0,  "description": "Wing width in high-vol regime ($)" },
+    "lowDeltaTarget":    { "type": "double", "value": 0.20, "description": "Short-strike delta target in low regime" },
+    "midDeltaTarget":    { "type": "double", "value": 0.25, "description": "Short-strike delta target in mid regime" },
+    "highDeltaTarget":   { "type": "double", "value": 0.30, "description": "Short-strike delta target in high regime" },
+    "profitTargetPct":   { "type": "double", "value": 0.50, "description": "Roll / close when P&L reaches this fraction of max profit" },
+    "stopLossMult":      { "type": "double", "value": 2.00, "description": "Exit when loss exceeds initial credit × this multiplier" },
+    "maxPortfolioDelta": { "type": "double", "value": 0.10, "description": "Maximum allowed net portfolio delta before new entries are blocked" },
+    "maxOpenPositions":  { "type": "double", "value": 5.0,  "description": "Hard cap on concurrent open positions" },
+    "positionSizeBase":  { "type": "double", "value": 1.0,  "description": "Base lot multiplier (scaled ×0.75/1.0/1.25 per regime)" },
+    "volRankEntryMin":   { "type": "double", "value": 30.0, "description": "Minimum IV-rank percentage required for entry" },
+    "premiumFloor":      { "type": "double", "value": 0.50, "description": "Minimum net credit per spread to justify the trade ($)" },
+    "skewAdjustment":    { "type": "double", "value": 0.05, "description": "Put-strike downshift when IV is above mid threshold ($)" },
+    "minDte":            { "type": "double", "value": 21.0, "description": "Minimum days to expiry at entry" },
+    "maxDte":            { "type": "double", "value": 45.0, "description": "Maximum days to expiry at entry" },
+    "rollDteThreshold":  { "type": "double", "value": 7.0,  "description": "Roll position when DTE falls below this value" },
+    "earningsBuffer":    { "type": "double", "value": 5.0,  "description": "Do not enter within this many days before earnings" }
+  }
+}
