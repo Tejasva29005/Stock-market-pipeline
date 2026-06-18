@@ -1,0 +1,35 @@
+{
+  "strategy": "ThetaPlayStrategy",
+  "description": "Intraday theta-harvesting strategy: sells an ATM call and an OTM call (OTM_OFFSET above ATM) on a fixed 5-minute cadence. Exits the entire position at 3:15 PM. Includes an IV-spike stop-loss and a minimum-IV filter to ensure collected premium is meaningful.",
+  "tags": ["intraday", "theta", "short-call", "time-decay", "options"],
+  "params": {
+    "STRIKE_STEP": {
+      "value": 1.0,
+      "description": "Strike grid size in dollars; strikes are rounded to the nearest multiple."
+    },
+    "OTM_OFFSET": {
+      "value": 3.0,
+      "description": "Distance above ATM (in dollars) for the short OTM call strike."
+    },
+    "ENTRY_INTERVAL_MS": {
+      "value": 300000,
+      "description": "Minimum milliseconds between successive entry signals (5 minutes = 300 000 ms)."
+    },
+    "EXIT_TIME": {
+      "value": "15:15:00",
+      "description": "Wall-clock time (HH:mm:ss) at which all open legs are closed for the day."
+    },
+    "IV_MIN_THRESHOLD": {
+      "value": 0.10,
+      "description": "Minimum implied volatility (10 %) required to open new short-call legs."
+    },
+    "IV_STOP_THRESHOLD": {
+      "value": 1.20,
+      "description": "IV spike stop-loss level (120 %): closes all legs immediately if IV exceeds this value."
+    },
+    "MIN_VOLUME": {
+      "value": 500000.0,
+      "description": "Minimum underlying daily volume; prevents trading illiquid names."
+    }
+  }
+}
