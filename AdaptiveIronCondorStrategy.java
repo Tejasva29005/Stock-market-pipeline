@@ -130,6 +130,39 @@ public class AdaptiveIronCondorStrategy implements Strategy {
     /** Fraction of the put skew premium applied as a strike adjustment. */
     private static final double SKEW_ADJUSTMENT_FACTOR = 0.60;
 
+    // ── Multi-timeframe regime weights and thresholds (V0 enhancement) ────────
+
+    /**
+     * Weight applied to the daily-timeframe trend score when computing the
+     * blended regime score.  Weekly weight = 1.0 - DAILY_TREND_WEIGHT.
+     */
+    private static final double DAILY_TREND_WEIGHT  = 0.60;
+
+    /**
+     * Blended score strictly above this threshold means both timeframes agree
+     * on a bullish / upward-trending environment.  Entry proceeds normally.
+     */
+    private static final double REGIME_SCORE_BULL   = 0.70;
+
+    /**
+     * Blended score strictly below this threshold means both timeframes agree
+     * on a bearish / downward-trending environment.  Entry proceeds normally.
+     */
+    private static final double REGIME_SCORE_BEAR   = 0.30;
+
+    /**
+     * Number of dollars added to (or subtracted from) the short-strike OTM
+     * distance on each side when timeframes disagree and strikes are widened.
+     * One "step" = STRIKE_ROUNDING × WING_WIDTH_WIDEN_STEPS.
+     */
+    private static final double WING_WIDTH_WIDEN_STEPS = 2.0;
+
+    /**
+     * Position-size multiplier applied when timeframes disagree (mixed regime).
+     * The position is halved to reduce exposure to directional uncertainty.
+     */
+    private static final double MIXED_REGIME_SIZE_FACTOR = 0.50;
+
     // ── Main signal generation ────────────────────────────────────────────────
 
     @Override
@@ -150,8 +183,14 @@ public class AdaptiveIronCondorStrategy implements Strategy {
             return signals;
         }
 
-        // Gate 2: Classify market regime for adaptive strike selection
-        MarketRegime regime = detectMarketRegime(data);
+        // Gate 2: Classify market regime using the weighted multi-timeframe score.
+        //
+        // detectMarketRegime() now returns a RegimeScore that bundles:
+        //   • regime          – primary enum label (unchanged semantics)
+        //   • blendedScore    – 60 % daily + 40 % weekly normalised trend score
+        //   • timeframesAgree – true when score > 0.7 (bullish) or < 0.3 (bearish)
+        RegimeScore regimeScore = detectMarketRegime(data);
+        MarketRegime regime     = regimeScore.regime;
 
         // Gate 3: Manage existing position before considering a new entry
         if (state.inTrade) {
@@ -193,6 +232,33 @@ public class AdaptiveIronCondorStrategy implements Strategy {
         double shortPutStrike  = putSpread[0];
         double longPutStrike   = putSpread[1];
 
+        // ── Multi-timeframe agreement gate ────────────────────────────────────
+        //
+        // When the daily (60 %) and weekly (40 %) trend scores disagree — i.e.
+        // the blended score falls in the uncertainty band [0.3, 0.7] — we do NOT
+        // skip the trade entirely.  Instead, we apply two protective adjustments:
+        //
+        //   1. Widen strikes: push each short strike one step further OTM and
+        //      each long strike one step further OTM beyond that, increasing the
+        //      buffer between spot and the short legs.
+        //   2. Reduce size: multiply contracts by MIXED_REGIME_SIZE_FACTOR (0.5)
+        //      to cut the notional exposure in half.
+        //
+        // When both timeframes agree (score > 0.7 bullish or < 0.3 bearish) we
+        // proceed with the normal, unadjusted strikes and full position size.
+        if (!regimeScore.timeframesAgree) {
+            double widenStep = STRIKE_ROUNDING * WING_WIDTH_WIDEN_STEPS;
+            // Widen the call spread: both legs shift further OTM (higher)
+            shortCallStrike = roundToStrike(shortCallStrike + widenStep);
+            longCallStrike  = roundToStrike(longCallStrike  + widenStep);
+            // Widen the put spread: both legs shift further OTM (lower)
+            shortPutStrike  = roundToStrike(shortPutStrike  - widenStep);
+            longPutStrike   = roundToStrike(longPutStrike   - widenStep);
+            // Halve the position size (floor still enforced below)
+            contracts = Math.max(MIN_CONTRACTS,
+                                 Math.floor(contracts * MIXED_REGIME_SIZE_FACTOR));
+        }
+
         // Geometry sanity check
         if (shortCallStrike >= longCallStrike || shortPutStrike <= longPutStrike) {
             return signals;
@@ -228,41 +294,160 @@ public class AdaptiveIronCondorStrategy implements Strategy {
     // ── Regime detection ──────────────────────────────────────────────────────
 
     /**
-     * Classify the current market into one of four regimes.
+     * Bundled result of the multi-timeframe regime detection.
      *
-     * In a real system this would consume a proper OHLCV price history feed
-     * and compute proper ATR, ADX, and momentum indicators. Here we approximate
-     * from the MarketData snapshot using IV and price ratios as proxies.
-     *
-     * Classification rules (evaluated in order):
-     *   1. IV > mean + 1.5σ → HIGH_VOL_CRUSH (prepare for mean reversion)
-     *   2. ADX-proxy > ADX_THRESHOLD_TREND:
-     *        a. Price momentum proxy > 0 → TRENDING_UP
-     *        b. Price momentum proxy < 0 → TRENDING_DOWN
-     *   3. Otherwise → RANGE_BOUND
+     * <ul>
+     *   <li>{@code regime}      – the primary regime label used for strike
+     *       geometry and credit estimation (derived from the daily proxy).</li>
+     *   <li>{@code blendedScore} – weighted combination of the daily (60 %) and
+     *       weekly (40 %) trend scores, each normalised to [0, 1] where
+     *       1.0 = strongly bullish/up-trending and 0.0 = strongly bearish/down-
+     *       trending.  A score near 0.5 signals a neutral / mixed environment.</li>
+     *   <li>{@code timeframesAgree} – true when the blended score is outside the
+     *       uncertainty band (> REGIME_SCORE_BULL or < REGIME_SCORE_BEAR).</li>
+     * </ul>
      */
-    private MarketRegime detectMarketRegime(MarketData data) {
+    private static class RegimeScore {
+        final MarketRegime regime;
+        final double       blendedScore;
+        final boolean      timeframesAgree;
+
+        RegimeScore(MarketRegime regime, double blendedScore) {
+            this.regime          = regime;
+            this.blendedScore    = blendedScore;
+            this.timeframesAgree = blendedScore > REGIME_SCORE_BULL
+                                || blendedScore < REGIME_SCORE_BEAR;
+        }
+    }
+
+    /**
+     * Classify the current market into one of four regimes AND produce a
+     * weighted multi-timeframe trend score.
+     *
+     * <h3>Two-timeframe approach</h3>
+     * <ul>
+     *   <li><b>Daily proxy</b> (60 % weight): uses IV and momentum values as-is
+     *       from the MarketData snapshot — these reflect intra-day / daily
+     *       dynamics.</li>
+     *   <li><b>Weekly proxy</b> (40 % weight): approximates a slower, weekly
+     *       moving average by smoothing the IV signal ({@code iv × 0.85}) and
+     *       dampening the momentum signal ({@code momentumWindow × 5}), which
+     *       emulates a 5-day lookback in the absence of a full OHLCV history.</li>
+     * </ul>
+     *
+     * <h3>Individual trend scores</h3>
+     * Each timeframe produces a scalar score in [0, 1]:
+     * <pre>
+     *   0.0  → strongly bearish / downward-trending
+     *   0.5  → neutral / range-bound
+     *   1.0  → strongly bullish / upward-trending
+     * </pre>
+     *
+     * The formula is:
+     * <pre>
+     *   trendStrength = clamp(adxProxy / (ADX_THRESHOLD_TREND * 2), 0, 1)
+     *   momentumSign  = momentumProxy > 0 ? +1 : -1
+     *   score         = 0.5 + momentumSign × trendStrength × 0.5
+     * </pre>
+     * A range-bound market (adxProxy ≤ threshold) produces a score near 0.5.
+     *
+     * <h3>Primary regime label</h3>
+     * The regime enum is derived solely from the daily proxy so that strike
+     * geometry and credit estimation remain identical to the original logic.
+     *
+     * <h3>Classification rules (evaluated in order)</h3>
+     * <ol>
+     *   <li>IV > mean + 1.5σ → HIGH_VOL_CRUSH (prepare for mean reversion)</li>
+     *   <li>ADX-proxy > ADX_THRESHOLD_TREND:
+     *     <ul>
+     *       <li>momentum proxy &gt; 0 → TRENDING_UP</li>
+     *       <li>momentum proxy &lt; 0 → TRENDING_DOWN</li>
+     *     </ul>
+     *   </li>
+     *   <li>Otherwise → RANGE_BOUND</li>
+     * </ol>
+     */
+    private RegimeScore detectMarketRegime(MarketData data) {
         double iv    = data.getImpliedVolatility();
         double price = data.getPrice();
 
+        // ── Primary regime label (daily proxy — unchanged from V0 baseline) ──
+
         // High-vol crush regime: IV significantly elevated vs. historical mean
         if (iv > IV_HIST_MEAN + 1.5 * IV_HIST_STD) {
-            return MarketRegime.HIGH_VOL_CRUSH;
+            // In a high-vol-crush environment both timeframes are effectively
+            // in agreement that mean reversion is imminent; score set to 0.5
+            // (neutral directional bias) with timeframesAgree = false so the
+            // caller widens strikes for additional safety.
+            return new RegimeScore(MarketRegime.HIGH_VOL_CRUSH, 0.50);
         }
 
-        // ADX proxy: we use the IV-to-price ratio as a crude trend indicator
-        // In production this would be a real ADX computed from daily OHLCV data
+        // ── Daily trend score (60 % weight) ──────────────────────────────────
+        double dailyScore = computeTrendScore(iv, price, MOMENTUM_WINDOW);
+
+        // ── Weekly trend score (40 % weight) ─────────────────────────────────
+        // Simulate a weekly (5-day) smoothed view by:
+        //   • dampening IV by 15 % (slower-reacting weekly IV surface)
+        //   • expanding the momentum window ×5 (weekly ≈ 5× daily periods)
+        double weeklyIV    = iv * 0.85;
+        double weeklyScore = computeTrendScore(weeklyIV, price, MOMENTUM_WINDOW * 5.0);
+
+        // ── Blended score ─────────────────────────────────────────────────────
+        double blended = DAILY_TREND_WEIGHT * dailyScore
+                       + (1.0 - DAILY_TREND_WEIGHT) * weeklyScore;
+
+        // ── Primary regime label from daily proxy ─────────────────────────────
+        MarketRegime regime = regimeFromScore(iv, price, dailyScore);
+
+        return new RegimeScore(regime, blended);
+    }
+
+    /**
+     * Compute a normalised trend score in [0, 1] for a given IV and momentum
+     * window combination.
+     *
+     * <pre>
+     *   adxProxy      = min(100, (iv / price) × 10 000)
+     *   fairValue     = price / (1 + iv / momentumWindow)
+     *   momentumProxy = price − fairValue
+     *   trendStrength = clamp(adxProxy / (ADX_THRESHOLD_TREND × 2), 0, 1)
+     *   score         = 0.5 + sign(momentumProxy) × trendStrength × 0.5
+     * </pre>
+     *
+     * @param iv             implied volatility for this timeframe
+     * @param price          current spot price
+     * @param momentumWindow lookback window (vol-time units) for this timeframe
+     * @return trend score in [0, 1]
+     */
+    private double computeTrendScore(double iv, double price, double momentumWindow) {
+        double ivToPrice      = iv / Math.max(price, 1.0);
+        double adxProxy       = Math.min(100.0, ivToPrice * 10_000.0);
+        double fairValue      = price / (1.0 + iv / momentumWindow);
+        double momentumProxy  = price - fairValue;
+        double trendStrength  = clamp(adxProxy / (ADX_THRESHOLD_TREND * 2.0), 0.0, 1.0);
+        double momentumSign   = momentumProxy >= 0.0 ? 1.0 : -1.0;
+        return 0.5 + momentumSign * trendStrength * 0.5;
+    }
+
+    /**
+     * Derive the primary {@link MarketRegime} enum value from the daily trend
+     * score and raw IV.  This preserves the original classification rules so
+     * that all downstream strike-selection and credit-estimation logic is
+     * unaffected by the multi-timeframe enhancement.
+     *
+     * @param iv         daily implied volatility
+     * @param price      current spot price
+     * @param dailyScore normalised daily trend score in [0, 1]
+     * @return the appropriate {@link MarketRegime}
+     */
+    private MarketRegime regimeFromScore(double iv, double price, double dailyScore) {
+        // Reconstruct adxProxy to stay consistent with the original logic
         double ivToPrice = iv / Math.max(price, 1.0);
         double adxProxy  = Math.min(100.0, ivToPrice * 10_000.0);
 
         if (adxProxy > ADX_THRESHOLD_TREND) {
-            // Momentum direction: approximate using price vs. a moving-average proxy
-            // The proxy here is the ratio of price to a simplified "fair value"
-            double faireValue    = price / (1.0 + iv / MOMENTUM_WINDOW);
-            double momentumProxy = price - faireValue;
-            return momentumProxy > 0 ? MarketRegime.TRENDING_UP : MarketRegime.TRENDING_DOWN;
+            return dailyScore > 0.5 ? MarketRegime.TRENDING_UP : MarketRegime.TRENDING_DOWN;
         }
-
         return MarketRegime.RANGE_BOUND;
     }
 
