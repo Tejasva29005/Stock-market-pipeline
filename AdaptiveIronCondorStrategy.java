@@ -102,9 +102,11 @@ public class AdaptiveIronCondorStrategy implements Strategy {
     /** Close when unrealised loss reaches this multiple of the initial credit. */
     private static final double STOP_LOSS_MULTIPLIER = 2.0;
     /** Exit unconditionally when estimated days-to-expiry drops below this. */
-    private static final int    DAYS_TO_EXPIRY_MIN   = 7;
+    private static final int    DAYS_TO_EXPIRY_MIN    = 7;
     /** Target DTE for new entries; used as the position duration clock baseline. */
     private static final int    DAYS_TO_EXPIRY_TARGET = 45;
+    /** No new entries are allowed when DTE is strictly below this threshold. */
+    private static final int    DTE_NO_ENTRY          = 14;
     /** Exit if portfolio gamma exceeds this threshold (net short gamma risk). */
     private static final double GAMMA_RISK_THRESHOLD  = 0.08;
     /** Exit if net vega dollar exposure exceeds this absolute value. */
@@ -164,14 +166,20 @@ public class AdaptiveIronCondorStrategy implements Strategy {
             return signals; // already in a trade and no action triggered
         }
 
+        // Gate 4: No new entries when DTE is too close to expiration
+        int dte = data.getDte();
+        if (dte < DTE_NO_ENTRY) {
+            return signals;
+        }
+
         // Validate minimum credit
         double expectedCredit = estimateCredit(data, regime);
         if (expectedCredit < CREDIT_MIN) {
             return signals;
         }
 
-        // Compute position size
-        double contracts = computePositionSize(data);
+        // Compute position size (DTE-scaled)
+        double contracts = computePositionSize(data, dte);
 
         // Select strikes for both spread sides
         double[] callSpread = selectCallSpread(data, regime);
@@ -413,9 +421,19 @@ public class AdaptiveIronCondorStrategy implements Strategy {
      * its historical mean, because elevated IV inflates gap-move risk and
      * bid-ask spreads, reducing the strategy's edge per contract.
      *
+     * Additionally, the raw count is scaled by a DTE factor that reflects the
+     * diminishing risk/reward profile as expiration approaches:
+     *   dte ≥ 45 → 100 % of size  (full position — optimal theta/gamma profile)
+     *   dte ≥ 30 →  75 % of size  (acceptable but slightly elevated gamma)
+     *   dte ≥ 21 →  50 % of size  (meaningful gamma risk; take smaller position)
+     *   dte < 14 →   0 % — no new entry (blocked upstream in generateSignals)
+     *
      * The result is floored at MIN_CONTRACTS and capped at MAX_CONTRACTS.
+     *
+     * @param data  current market snapshot
+     * @param dte   days to expiration read from MarketData
      */
-    private double computePositionSize(MarketData data) {
+    private double computePositionSize(MarketData data, int dte) {
         double iv                 = data.getImpliedVolatility();
         double riskBudget         = PORTFOLIO_NAV * PORTFOLIO_RISK_PCT;
         double maxRiskPerContract = WING_WIDTH_DEFAULT * 100.0;
@@ -428,7 +446,32 @@ public class AdaptiveIronCondorStrategy implements Strategy {
             rawContracts *= ivScaleFactor;
         }
 
+        // Scale down as DTE decreases toward expiration
+        rawContracts *= dteSizingScale(dte);
+
         return clamp(Math.floor(rawContracts), MIN_CONTRACTS, MAX_CONTRACTS);
+    }
+
+    /**
+     * Return the DTE-based position-size scaling factor.
+     *
+     * <pre>
+     *  DTE ≥ 45  →  1.00  (full size)
+     *  DTE ≥ 30  →  0.75  (three-quarter size)
+     *  DTE ≥ 21  →  0.50  (half size)
+     *  DTE ≥ 14  →  0.50  (half size — below 14 is blocked at entry gate)
+     *  DTE < 14  →  0.00  (no new entries; handled upstream)
+     * </pre>
+     *
+     * @param dte days to expiration (must be ≥ DTE_NO_ENTRY to reach this method)
+     * @return scaling multiplier in (0, 1]
+     */
+    private double dteSizingScale(int dte) {
+        if (dte >= 45) return 1.00;
+        if (dte >= 30) return 0.75;
+        if (dte >= 21) return 0.50;
+        // dte is in [14, 21) — still allowed but at half size
+        return 0.50;
     }
 
     // ── Exit rules ────────────────────────────────────────────────────────────
