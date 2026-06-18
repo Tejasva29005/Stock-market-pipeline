@@ -1,12 +1,12 @@
 {
   "strategyName": "MeanReversionStrategy",
-  "description": "Sells ATM straddles (or strangles) when implied volatility is elevated relative to historical volatility, exploiting IV's tendency to revert to its mean. IV Rank is proxied as IV/HV; a ratio above 7 triggers premium-selling entries. Exits on IV compression, a time stop at 21 DTE, or a stop-loss if IV expands further.",
-  "tags": ["mean-reversion", "volatility", "premium-selling", "straddle", "strangle"],
+  "description": "Sells ATM straddles (or strangles) when implied volatility is elevated relative to historical volatility, exploiting IV's tendency to revert to its mean. IV Rank is proxied as IV/HV; a ratio above 7 triggers premium-selling entries. Also buys an ATM call when IV is above 6 but not yet in the premium-selling zone, capturing directional upside before IV falls below 6. Exits on IV compression, a time stop at 21 DTE, or a stop-loss if IV expands further.",
+  "tags": ["mean-reversion", "volatility", "premium-selling", "straddle", "strangle", "buy-call"],
   "parameters": {
     "IV_RANK_THRESHOLD": {
       "value": 7.0,
       "type": "double",
-      "description": "Minimum IV/HV ratio required to open a position. Spec mandates 7."
+      "description": "Minimum IV/HV ratio required to open a premium-selling position. Spec mandates 7."
     },
     "IV_RANK_EXTREME": {
       "value": 10.0,
@@ -32,6 +32,11 @@
       "value": 21,
       "type": "int",
       "description": "Time-based exit: close entire position when days-to-expiry are at or below this value."
+    },
+    "IV_CALL_THRESHOLD": {
+      "value": 6.0,
+      "type": "double",
+      "description": "Buy-call threshold: a BUY_CALL signal is generated when IV is still above this level (IV > 6) and the IV/HV ratio is not yet in the premium-selling zone, allowing entry into a long call before IV falls below 6 and premiums collapse."
     }
   }
 }

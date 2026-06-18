@@ -14,6 +14,8 @@ import java.util.List;
  *
  * Entry:
  *   IV/HV ratio  > IV_RANK_THRESHOLD  — sell ATM straddle (call + put at spot)
+ *   IV > IV_CALL_THRESHOLD (6) AND IV/HV ratio <= IV_RANK_THRESHOLD
+ *                              — buy ATM call BEFORE IV falls below 6
  *
  * Position sizing:
  *   When the ratio is extreme (> IV_RANK_EXTREME) the position is scaled up
@@ -68,6 +70,14 @@ public class MeanReversionStrategy implements Strategy {
      */
     private static final int    EXIT_DTE          = 21;
 
+    /**
+     * Buy-call threshold: when IV is still above this level (i.e. IV > 6) but
+     * has not entered the premium-selling zone (IV/HV <= IV_RANK_THRESHOLD),
+     * the strategy buys an ATM call to capture directional upside before IV
+     * falls below 6 and call premiums become too cheap to justify entry.
+     */
+    private static final double IV_CALL_THRESHOLD = 6.0;
+
     // -----------------------------------------------------------------------
     // Signal generation
     // -----------------------------------------------------------------------
@@ -110,6 +120,19 @@ public class MeanReversionStrategy implements Strategy {
         // ------------------------------------------------------------------
         if (ivRank <= IV_RANK_EXIT) {
             signals.add(new Signal(symbol, SignalType.EXIT, 1.0));
+            return signals;
+        }
+
+        // ------------------------------------------------------------------
+        // Pre-emptive long call — buy before IV falls below 6
+        // Fires when IV is still above IV_CALL_THRESHOLD (6) but the IV/HV
+        // ratio is NOT in the premium-selling zone.  This captures directional
+        // upside while call premiums are still reasonably priced, before IV
+        // drops through the 6 floor and premiums collapse.
+        // ------------------------------------------------------------------
+        if (iv > IV_CALL_THRESHOLD && ivRank <= IV_RANK_THRESHOLD) {
+            // ATM call at the current spot price
+            signals.add(new Signal(symbol, SignalType.BUY_CALL, price));
             return signals;
         }
 
