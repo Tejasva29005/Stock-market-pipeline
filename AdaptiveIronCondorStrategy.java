@@ -373,8 +373,8 @@ public class AdaptiveIronCondorStrategy implements Strategy {
 
         // ── Primary regime label (daily proxy — unchanged from V0 baseline) ──
 
-        // High-vol crush regime: IV significantly elevated vs. historical mean
-        if (iv > IV_HIST_MEAN + 1.5 * IV_HIST_STD) {
+        // Mean-reversion regime: IV significantly depressed vs. historical mean
+        if (iv < IV_HIST_MEAN - 0.75 * IV_HIST_STD) {
             // In a high-vol-crush environment both timeframes are effectively
             // in agreement that mean reversion is imminent; score set to 0.5
             // (neutral directional bias) with timeframesAgree = false so the
