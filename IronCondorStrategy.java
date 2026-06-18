@@ -15,7 +15,7 @@ public class IronCondorStrategy implements Strategy {
     private static final double IV_THRESHOLD = 0.85;  // min IV to enter (85 %)
 
     // Three-tier profit-take thresholds (fraction of max profit captured)
-    private static final double TIER1_PROFIT = 0.25;  // close 50 % of position here
+    private static final double TIER1_PROFIT = 0.30;  // close 50 % of position here
     private static final double TIER2_PROFIT = 0.50;  // close another 25 % here
     private static final double TIER3_PROFIT = 0.75;  // close the rest here
 
@@ -61,7 +61,7 @@ public class IronCondorStrategy implements Strategy {
             else if (profit >= TIER2_PROFIT) {
                 signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER2_FRACTION));
             }
-            // Tier 1: at 25 % profit, close 50 % of the position.
+            // Tier 1: at 30 % profit, close 50 % of the position.
             else if (profit >= TIER1_PROFIT) {
                 signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER1_FRACTION));
             }
