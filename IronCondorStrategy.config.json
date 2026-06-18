@@ -1,13 +1,18 @@
 {
   "name": "IronCondorStrategy",
-  "description": "Neutral options strategy that profits from low volatility. Sells an OTM call spread and OTM put spread simultaneously to collect premium. Exits via a three-tier profit-take (50% of position at 30% profit, 25% at 50% profit, remainder at 75% profit) or a 21 DTE time stop, whichever comes first.",
+  "description": "Neutral options strategy that profits from low volatility. Sells an OTM call spread and OTM put spread simultaneously to collect premium. Exits via a four-tier data-driven profit-take (40% of position at 20% profit, 30% at 40% profit, 20% at 60% profit, final 10% at 80% profit) or a 21 DTE time stop, whichever comes first.",
   "tags": ["options", "neutral", "iron-condor", "premium-collection", "low-volatility"],
   "params": {
     "wingWidth":    { "type": "double", "value": 8.0,  "description": "Distance between strikes in dollars" },
     "ivThreshold":  { "type": "double", "value": 0.85, "description": "Minimum IV to enter trade (85 %)" },
-    "tier1Profit":  { "type": "double", "value": 0.30, "description": "Profit fraction to close 50% of position" },
-    "tier2Profit":  { "type": "double", "value": 0.50, "description": "Profit fraction to close another 25% of position" },
-    "tier3Profit":  { "type": "double", "value": 0.75, "description": "Profit fraction to close the remaining position" },
+    "tier1Profit":  { "type": "double", "value": 0.20, "description": "Profit fraction to close 40% of position" },
+    "tier2Profit":  { "type": "double", "value": 0.40, "description": "Profit fraction to close 30% of position" },
+    "tier3Profit":  { "type": "double", "value": 0.60, "description": "Profit fraction to close 20% of position" },
+    "tier4Profit":  { "type": "double", "value": 0.80, "description": "Profit fraction to close the final 10% of position" },
+    "tier1Fraction": { "type": "double", "value": 0.40, "description": "Position fraction closed at tier 1 (20% profit)" },
+    "tier2Fraction": { "type": "double", "value": 0.30, "description": "Position fraction closed at tier 2 (40% profit)" },
+    "tier3Fraction": { "type": "double", "value": 0.20, "description": "Position fraction closed at tier 3 (60% profit)" },
+    "tier4Fraction": { "type": "double", "value": 0.10, "description": "Position fraction closed at tier 4 (80% profit)" },
     "exitDte":      { "type": "int",    "value": 21,   "description": "Close all remaining position at or below this DTE" }
   }
 }

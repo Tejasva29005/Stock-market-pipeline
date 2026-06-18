@@ -14,15 +14,13 @@ public class IronCondorStrategy implements Strategy {
     private static final double WING_WIDTH   = 8.0;   // distance between strikes ($)
     private static final double IV_THRESHOLD = 0.85;  // min IV to enter (85 %)
 
-    // Three-tier profit-take thresholds (fraction of max profit captured)
-    private static final double TIER1_PROFIT = 0.30;  // close 50 % of position here
-    private static final double TIER2_PROFIT = 0.50;  // close another 25 % here
-    private static final double TIER3_PROFIT = 0.75;  // close the rest here
-
-    // Portion of the position closed at each tier
-    private static final double TIER1_FRACTION = 0.50;
-    private static final double TIER2_FRACTION = 0.25;
-    private static final double TIER3_FRACTION = 0.25;
+    // V2.1 — Four-tier, fully data-driven profit-take ladder.
+    // Each entry pairs a profit threshold (fraction of max profit captured)
+    // with the fraction of the position to close once that threshold is hit.
+    // Tiers are ordered from highest profit to lowest so the richest tier
+    // reached is the one that fires. The fractions sum to 1.0 (100 %).
+    private static final double[] PROFIT_TIERS = { 0.80, 0.60, 0.40, 0.20 };
+    private static final double[] TIER_FRACTIONS = { 0.10, 0.20, 0.30, 0.40 };
 
     // Time-based exit: close everything remaining at or below this DTE
     private static final int    EXIT_DTE = 21;
@@ -43,7 +41,7 @@ public class IronCondorStrategy implements Strategy {
             signals.add(new Signal(data.getSymbol(), SignalType.BUY_PUT,   price - 2 * WING_WIDTH));
         }
 
-        // Three-tier profit-take exit, plus a 21-DTE time stop.
+        // Four-tier profit-take exit, plus a 21-DTE time stop.
         // Profit is expressed as the fraction of max profit currently captured.
         double profit = data.getProfitPct();
         int    dte    = data.getDaysToExpiration();
@@ -53,17 +51,17 @@ public class IronCondorStrategy implements Strategy {
         if (dte <= EXIT_DTE) {
             signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, 1.0));
         } else {
-            // Tier 3: at 75 % profit, close the remaining 25 % of the position.
-            if (profit >= TIER3_PROFIT) {
-                signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER3_FRACTION));
-            }
-            // Tier 2: at 50 % profit, close another 25 % of the position.
-            else if (profit >= TIER2_PROFIT) {
-                signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER2_FRACTION));
-            }
-            // Tier 1: at 30 % profit, close 50 % of the position.
-            else if (profit >= TIER1_PROFIT) {
-                signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER1_FRACTION));
+            // Data-driven profit-take ladder: tiers are ordered highest-first,
+            // so the first threshold met fires and closes that tier's fraction.
+            //   close 40 % at 20 % profit
+            //   close 30 % at 40 % profit
+            //   close 20 % at 60 % profit
+            //   close 10 % at 80 % profit
+            for (int i = 0; i < PROFIT_TIERS.length; i++) {
+                if (profit >= PROFIT_TIERS[i]) {
+                    signals.add(new Signal(data.getSymbol(), SignalType.CLOSE, TIER_FRACTIONS[i]));
+                    break;
+                }
             }
         }
 
