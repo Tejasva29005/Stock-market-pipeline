@@ -1,9 +1,13 @@
 {
   "name": "IronCondorStrategy",
-  "description": "Neutral options strategy that profits from low volatility. Sells an OTM call spread and OTM put spread simultaneously to collect premium.",
+  "description": "Neutral options strategy that profits from low volatility. Sells an OTM call spread and OTM put spread simultaneously to collect premium. Exits via a three-tier profit-take (50% of position at 25% profit, 25% at 50% profit, remainder at 75% profit) or a 21 DTE time stop, whichever comes first.",
   "tags": ["options", "neutral", "iron-condor", "premium-collection", "low-volatility"],
   "params": {
     "wingWidth":    { "type": "double", "value": 8.0,  "description": "Distance between strikes in dollars" },
-    "ivThreshold":  { "type": "double", "value": 0.85, "description": "Minimum IV to enter trade (85 %)" }
+    "ivThreshold":  { "type": "double", "value": 0.85, "description": "Minimum IV to enter trade (85 %)" },
+    "tier1Profit":  { "type": "double", "value": 0.25, "description": "Profit fraction to close 50% of position" },
+    "tier2Profit":  { "type": "double", "value": 0.50, "description": "Profit fraction to close another 25% of position" },
+    "tier3Profit":  { "type": "double", "value": 0.75, "description": "Profit fraction to close the remaining position" },
+    "exitDte":      { "type": "int",    "value": 21,   "description": "Close all remaining position at or below this DTE" }
   }
 }
