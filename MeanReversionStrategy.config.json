@@ -1,0 +1,37 @@
+{
+  "strategyName": "MeanReversionStrategy",
+  "description": "Sells ATM straddles (or strangles) when implied volatility is elevated relative to historical volatility, exploiting IV's tendency to revert to its mean. IV Rank is proxied as IV/HV; a ratio above 7 triggers premium-selling entries. Exits on IV compression, a time stop at 21 DTE, or a stop-loss if IV expands further.",
+  "tags": ["mean-reversion", "volatility", "premium-selling", "straddle", "strangle"],
+  "parameters": {
+    "IV_RANK_THRESHOLD": {
+      "value": 7.0,
+      "type": "double",
+      "description": "Minimum IV/HV ratio required to open a position. Spec mandates 7."
+    },
+    "IV_RANK_EXTREME": {
+      "value": 10.0,
+      "type": "double",
+      "description": "IV/HV ratio above which position is scaled up with additional OTM short strikes."
+    },
+    "STRANGLE_OFFSET": {
+      "value": 0.0,
+      "type": "double",
+      "description": "Strike offset from spot for entry. 0 = ATM straddle; positive value = OTM strangle."
+    },
+    "IV_RANK_EXIT": {
+      "value": 3.0,
+      "type": "double",
+      "description": "Profit-take threshold: close position when IV/HV ratio compresses below this level."
+    },
+    "STOP_LOSS_RATIO": {
+      "value": 14.0,
+      "type": "double",
+      "description": "Stop-loss threshold: close position when IV/HV ratio expands above this level."
+    },
+    "EXIT_DTE": {
+      "value": 21,
+      "type": "int",
+      "description": "Time-based exit: close entire position when days-to-expiry are at or below this value."
+    }
+  }
+}
